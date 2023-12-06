@@ -35,8 +35,8 @@
           cargo
           (jetbrains.plugins.addPlugins jetbrains.pycharm-professional ["github-copilot" "ideavim"])
           (jetbrains.plugins.addPlugins jetbrains.rust-rover [ "github-copilot" "ideavim" ])
-          (python311.withPackages(ps: with ps; [wheel numpy pandas matplotlib seaborn]))
-          black
+          (python311.withPackages(ps: with ps; [wheel numpy pandas matplotlib seaborn scikit-image]))
+          black isort
           clippy
         ];
         inputsFrom = [ pkgs.neovim pkgs.zsh ];
