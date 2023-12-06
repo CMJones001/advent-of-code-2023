@@ -1,6 +1,6 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{space0, space1};
+use nom::character::complete::{space0, space1, line_ending};
 use nom::combinator::map;
 use nom::multi::separated_list1;
 use nom::sequence::{delimited, pair, separated_pair};
@@ -9,12 +9,19 @@ use nom_supreme::parser_ext::ParserExt;
 
 fn main() {
     problem_one();
+    problem_two();
 }
 
 fn problem_one() {
     let input = include_str!("./problem_text");
     let id_sum = get_id_total(input);
     println!("The sum of the valid game ids is {}", id_sum);
+}
+
+fn problem_two() {
+    let input = include_str!("./problem_text");
+    let power_sum = get_power_total(input);
+    println!("The sum of the valid game powers is {}", power_sum);
 }
 
 fn get_id_total(input: &str) -> u32 {
@@ -26,14 +33,18 @@ fn get_id_total(input: &str) -> u32 {
 
     games
         .into_iter()
-        .filter_map(|game| {
-            if game.is_game_valid(max_red, max_green, max_blue) {
-                Some(game.id)
-            } else {
-                None
-            }
-        })
-        .sum::<u32>()
+        .filter(|game| game.is_game_valid(max_red, max_green, max_blue))
+        .map(|game| game.id)
+        .sum()
+}
+
+fn get_power_total(input: &str) -> u32 {
+    let (_, games) = parse_file(input).unwrap();
+
+    games
+        .into_iter()
+        .map(|game| game.get_max_counts().get_power())
+        .sum()
 }
 
 #[derive(Debug, PartialEq)]
@@ -42,11 +53,20 @@ struct Game {
     rounds: Vec<Round>,
 }
 
+
 impl Game {
+    /// Return true if all rounds are valid
     fn is_game_valid(&self, max_red: u32, max_green: u32, max_blue: u32) -> bool {
         self.rounds
             .iter()
             .all(|round| round.is_round_valid(max_red, max_green, max_blue))
+    }
+
+    /// Returns the minimum number of dice of each colour required in this game
+    fn get_max_counts(&self) -> Counts {
+        self.rounds
+            .iter()
+            .fold(Counts::new(), |acc, round| acc.update(round))
     }
 }
 
@@ -58,15 +78,51 @@ struct Round {
 }
 
 impl Round {
-    fn from_tuple(blue: u32, red: u32, green: u32) -> Self {
-        Round { blue, red, green }
-    }
-
     fn is_round_valid(&self, max_red: u32, max_green: u32, max_blue: u32) -> bool {
         self.red <= max_red && self.green <= max_green && self.blue <= max_blue
     }
 }
 
+#[derive(Debug, PartialEq)]
+struct Counts {
+    blue: u32,
+    red: u32,
+    green: u32,
+}
+
+impl Counts {
+    fn new() -> Self {
+        Counts {
+            blue: 0,
+            red: 0,
+            green: 0,
+        }
+    }
+
+    /// Returns a new `Counts` with the number of each colour updated to the maximum of the two
+    fn update(&self, round: &Round) -> Self {
+        let Counts {
+            blue: b1,
+            red: r1,
+            green: g1,
+        } = self;
+        let Round {
+            blue: b2,
+            red: r2,
+            green: g2,
+        } = round;
+
+        Counts {
+            blue: *b1.max(b2),
+            red: *r1.max(r2),
+            green: *g1.max(g2),
+        }
+    }
+
+    fn get_power(&self) -> u32 {
+        self.blue * self.red * self.green
+    }
+}
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum Colour {
     Blue,
@@ -75,8 +131,7 @@ enum Colour {
 }
 
 fn parse_file(input: &str) -> IResult<&str, Vec<Game>> {
-    let mut parser = separated_list1(pair(tag("\n"), space0), parse_game);
-    parser(input)
+    separated_list1(line_ending, parse_game)(input)
 }
 
 fn parse_game(line: &str) -> IResult<&str, Game> {
@@ -96,13 +151,16 @@ fn parse_round(line: &str) -> IResult<&str, Round> {
         tag("green").value(Colour::Green),
     ));
     let colour_parser = separated_pair(nom::character::complete::u32, space1, colours);
-    let parser = separated_list1(pair(tag(", "), space0), colour_parser);
+    let list_sep = tag(",").terminated(space0);
+    let colour_list_parser = separated_list1(list_sep, colour_parser);
 
-    map(parser, |v| {
+    map(colour_list_parser, |v| {
         let mut blue = 0;
         let mut red = 0;
         let mut green = 0;
 
+        // This would also work if we have multiple versions of the same colour
+        // in the same round, although this doesn't seem to happen.
         v.into_iter().for_each(|(count, colour)| match colour {
             Colour::Blue => blue += count,
             Colour::Red => red += count,
@@ -116,6 +174,12 @@ fn parse_round(line: &str) -> IResult<&str, Round> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    impl Round {
+        fn from_tuple(blue: u32, red: u32, green: u32) -> Self {
+            Round { blue, red, green }
+        }
+    }
 
     #[test]
     fn test_parse_round() {
@@ -189,6 +253,32 @@ mod tests {
         "};
         let expected = 8;
         let actual = get_id_total(input);
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_get_max_counts() {
+        let game_string = "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green";
+        let (_, game) = parse_game(game_string).unwrap();
+        let counts = Counts {
+            blue: 6,
+            red: 4,
+            green: 2,
+        };
+        assert_eq!(counts, game.get_max_counts());
+    }
+
+    #[test]
+    fn test_get_powers() {
+        let input = indoc::indoc! {"
+            Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
+            Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
+            Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
+            Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
+            Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green
+        "};
+        let expected = 2286;
+        let actual = get_power_total(input);
         assert_eq!(expected, actual);
     }
 }
