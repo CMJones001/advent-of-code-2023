@@ -1,4 +1,3 @@
-#![feature(iter_map_windows)]
 use itertools::repeat_n;
 use itertools::Itertools;
 
@@ -99,8 +98,8 @@ fn parse_text_line(line: &str) -> (u32, u32) {
 fn get_values(line: &str) -> (u32, u32) {
     let chars = line.chars();
 
-    let first_char = chars.clone().find(|c| c.is_digit(10)).unwrap();
-    let last_char = chars.rev().find(|c| c.is_digit(10)).unwrap();
+    let first_char = chars.clone().find(|c| c.is_ascii_digit()).unwrap();
+    let last_char = chars.rev().find(|c| c.is_ascii_digit()).unwrap();
 
     (
         first_char.to_digit(10).unwrap(),
