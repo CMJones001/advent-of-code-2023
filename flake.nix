@@ -30,7 +30,9 @@
         inherit nativeBuildInputs;
         buildInputs = [ 
           gnuplot
-          rust-bin.stable.latest.default 
+          (rust-bin.stable.latest.default.override {
+            extensions = [ "rust-src" "rust-analyzer" ];
+          })
           eza fd bacon
           cargo
           (jetbrains.plugins.addPlugins jetbrains.pycharm-professional ["github-copilot" "ideavim"])

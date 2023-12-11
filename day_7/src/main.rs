@@ -1,32 +1,37 @@
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 
 fn main() {
     let input = include_str!("problem_text");
-    let total = get_bet_total_naive(input);
+    let problem_one = get_bet_total_naive(input);
+    let expected_one = 252295678;
 
-    println!("Total: {}", total);
+    println!("Total: {}", problem_one);
+    if problem_one != expected_one {
+        println!("Expected: {}", expected_one);
+    }
 }
 
-fn parse_input(input: &str) -> Vec<(HandNaive, u32)> {
+fn parse_input(input: &str) -> Vec<(Hand, u32)> {
     input
         .lines()
         .map(|line| {
             let (hand_str, bid) = line.split_at(5);
-            let hand = HandNaive::from_string(hand_str);
+            let hand = Hand::from_string(hand_str);
 
             (hand, bid.trim().parse::<u32>().unwrap())
-        }).collect()
+        })
+        .collect()
 }
 
 fn get_bet_total_naive(input: &str) -> u32 {
     let mut bets = parse_input(input);
 
     bets.sort_by(|(hand_a, _), (hand_b, _)| hand_a.cmp(hand_b));
-    for (hand, bid) in bets.iter() {
-        println!("{bid:4}: {hand}");
-    }
-    bets.iter().enumerate().map(|(pos, (_, bid))| (pos as u32 +1) * bid).sum()
+    bets.iter()
+        .enumerate()
+        .map(|(pos, (_, bid))| (pos as u32 + 1) * bid)
+        .sum()
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
@@ -40,7 +45,7 @@ enum Card {
 }
 
 impl Display for Card {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
             Card::Unit(n) => write!(f, "{}", n),
             Card::Ten => write!(f, "T"),
@@ -52,89 +57,73 @@ impl Display for Card {
     }
 }
 
-fn parse_card(card: char) -> Card {
-    match card {
-        'A' => Card::Ace,
-        'K' => Card::King,
-        'Q' => Card::Queen,
-        'J' => Card::Jack,
-        'T' => Card::Ten,
-        x => Card::Unit(x.to_digit(10).unwrap() as u8),
+impl Card {
+    fn from_char(card: char) -> Card {
+        match card {
+            'A' => Card::Ace,
+            'K' => Card::King,
+            'Q' => Card::Queen,
+            'J' => Card::Jack,
+            'T' => Card::Ten,
+            x => Card::Unit(x.to_digit(10).unwrap() as u8),
+        }
     }
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct HandNaive {
+struct Hand {
     hand_type: HandType,
     cards: Vec<Card>,
 }
 
-impl Display for HandNaive {
+impl Display for Hand {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}: {:?}", self.cards, self.hand_type)
     }
 }
 
-impl HandNaive {
-    fn from_string(hand: &str) -> HandNaive {
-        let cards = hand.chars().map(parse_card).collect::<Vec<_>>();
+impl Hand {
 
-        HandNaive::from_cards(cards)
+    fn new(hand_type: HandType, cards: Vec<Card>) -> Hand {
+        Hand { hand_type, cards }
     }
 
-    fn from_cards(cards: Vec<Card>) -> HandNaive {
-        let counter = count_cards(&cards);
+    fn from_string(hand: &str) -> Hand {
+        let cards = hand.chars().map(Card::from_char).collect::<Vec<_>>();
+        Hand::from_cards(cards)
+    }
 
+    fn from_cards(cards: Vec<Card>) -> Hand {
+        let counter = count_cards(&cards);
         let num_unique_cards = counter.len();
 
         if num_unique_cards == 1 {
             // If there is only one unique card, then it must be a five of a kind
-            HandNaive {
-                hand_type: HandType::FiveOfAKind,
-                cards,
-            }
+            Hand::new(HandType::FiveOfAKind, cards)
         } else if num_unique_cards == 2 {
-            if find_count(4, &counter).is_some() {
+            if contains_counts(4, &counter) {
                 // If there are two unique cards, and one of them has a count of 4, then it
                 // must be a four of a kind
-                HandNaive {
-                    hand_type: HandType::FourOfAKind,
-                    cards,
-                }
+                Hand::new(HandType::FourOfAKind, cards)
             } else {
                 // Otherwise, it must be a full house
-                HandNaive {
-                    hand_type: HandType::FullHouse,
-                    cards,
-                }
+                Hand::new(HandType::FullHouse, cards)
             }
         } else if num_unique_cards == 3 {
-            if find_count(3, &counter).is_some() {
+            if contains_counts(3, &counter) {
                 // If there are three unique cards, and one of them has a count of 3, then it
                 // must be a three of a kind
-                HandNaive {
-                    hand_type: HandType::ThreeOfAKind,
-                    cards,
-                }
+                Hand::new(HandType::ThreeOfAKind, cards)
             } else {
                 // Otherwise, it must be a two pair
-                HandNaive {
-                    hand_type: HandType::TwoPair,
-                    cards,
-                }
+                Hand::new(HandType::TwoPair, cards)
             }
         } else if num_unique_cards == 4 {
             // If there are four unique cards, then it must be a one pair
-            HandNaive {
-                hand_type: HandType::OnePair,
-                cards,
-            }
+            Hand::new(HandType::OnePair, cards)
         } else if num_unique_cards == 5 {
             // If there are five unique cards, then it must be a high card
-            HandNaive {
-                hand_type: HandType::HighCard,
-                cards,
-            }
+            Hand::new(HandType::HighCard, cards)
         } else {
             panic!("Invalid number of unique cards: {}", num_unique_cards);
         }
@@ -152,12 +141,11 @@ enum HandType {
     FiveOfAKind,
 }
 
-fn find_count(count: u32, counter: &BTreeMap<Card, u32>) -> Option<Card> {
+/// Returns true if the counter contains a card with the given count
+fn contains_counts(count: u32, counter: &BTreeMap<Card, u32>) -> bool {
     counter
         .iter()
-        .rev()
-        .find(|(_, &c)| c == count)
-        .map(|(&card, _)| card)
+        .any(|(_, &card_count)| card_count == count)
 }
 
 fn count_cards(cards: &[Card]) -> BTreeMap<Card, u32> {
@@ -185,7 +173,7 @@ mod test {
         ];
         let hand_actual = sample_input
             .chars()
-            .map(super::parse_card)
+            .map(Card::from_char)
             .collect::<Vec<_>>();
 
         assert_eq!(hand_expected, hand_actual);
@@ -204,7 +192,7 @@ mod test {
         ];
         let mut hand_actual = sample_input
             .chars()
-            .map(super::parse_card)
+            .map(Card::from_char)
             .collect::<Vec<_>>();
 
         hand_actual.sort();
@@ -226,7 +214,7 @@ mod test {
         ];
         let mut hand_actual = sample_input
             .chars()
-            .map(super::parse_card)
+            .map(Card::from_char)
             .collect::<Vec<_>>();
 
         hand_actual.sort();
@@ -241,7 +229,7 @@ mod test {
 
         let mut hand_actual = sample_input
             .chars()
-            .map(super::parse_card)
+            .map(Card::from_char)
             .collect::<Vec<_>>();
 
         hand_actual.sort();
@@ -261,7 +249,7 @@ mod test {
 
         let mut hand_actual = sample_input
             .chars()
-            .map(super::parse_card)
+            .map(Card::from_char)
             .collect::<Vec<_>>();
 
         hand_actual.sort();
@@ -269,8 +257,11 @@ mod test {
 
         let counter = count_cards(&hand_actual);
 
-        let counter_expected =
-            BTreeMap::from_iter(vec![(Card::King, 2), (Card::Unit(7), 2), (Card::Unit(6), 1)]);
+        let counter_expected = BTreeMap::from_iter(vec![
+            (Card::King, 2),
+            (Card::Unit(7), 2),
+            (Card::Unit(6), 1),
+        ]);
 
         for (k, v) in counter.iter() {
             println!("{:?}: {}", k, v);
@@ -282,14 +273,14 @@ mod test {
     fn test_parse_hands() {
         let sample_input = "32T3K";
 
-        let hand = HandNaive::from_string(sample_input);
+        let hand = Hand::from_string(sample_input);
         assert_eq!(hand.hand_type, HandType::OnePair);
     }
 
     #[test]
     fn test_parse_hands_2() {
         let sample_input = "T55J5";
-        let hand = HandNaive::from_string(sample_input);
+        let hand = Hand::from_string(sample_input);
 
         assert_eq!(hand.hand_type, HandType::ThreeOfAKind);
     }
@@ -297,7 +288,7 @@ mod test {
     #[test]
     fn test_parse_hands_3() {
         let sample_input = "776KK";
-        let hand = HandNaive::from_string(sample_input);
+        let hand = Hand::from_string(sample_input);
 
         assert_eq!(hand.hand_type, HandType::TwoPair)
     }
@@ -305,7 +296,7 @@ mod test {
     #[test]
     fn test_parse_hands_4() {
         let sample_input = "KTJJT";
-        let hand = HandNaive::from_string(sample_input);
+        let hand = Hand::from_string(sample_input);
 
         assert_eq!(hand.hand_type, HandType::TwoPair);
     }
@@ -313,7 +304,7 @@ mod test {
     #[test]
     fn test_parse_hands_5() {
         let sample_input = "QQQJA";
-        let hand = HandNaive::from_string(sample_input);
+        let hand = Hand::from_string(sample_input);
         assert_eq!(hand.hand_type, HandType::ThreeOfAKind);
     }
 
