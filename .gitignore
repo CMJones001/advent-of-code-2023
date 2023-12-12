@@ -3,3 +3,4 @@
 debug
 .idea
 **/*.rs.bk
+__pycache__
