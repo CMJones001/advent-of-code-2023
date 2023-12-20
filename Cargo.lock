@@ -72,6 +72,18 @@ dependencies = [
 name = "day_15"
 version = "0.1.0"
 dependencies = [
+ "nom",
+ "nom-supreme",
+ "test-case",
+]
+
+[[package]]
+name = "day_19"
+version = "0.1.0"
+dependencies = [
+ "indoc",
+ "nom",
+ "nom-supreme",
  "test-case",
 ]
 
