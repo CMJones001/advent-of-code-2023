@@ -1,12 +1,12 @@
-use nom::{IResult, Parser};
-use nom::character::complete::{alpha1, multispace1, multispace0};
-use std::collections::HashMap;
-use nom::sequence::{delimited, tuple};
-use nom::bytes::complete::tag;
-use nom::multi::separated_list1;
-use nom::branch::alt;
-use nom_supreme::ParserExt;
 use crate::{Bin, Filter, FilterList, Part, PartType};
+use nom::branch::alt;
+use nom::bytes::complete::tag;
+use nom::character::complete::{alpha1, multispace0, multispace1};
+use nom::multi::separated_list1;
+use nom::sequence::{delimited, tuple};
+use nom::{IResult, Parser};
+use nom_supreme::ParserExt;
+use std::collections::HashMap;
 
 /// Parse a list of parts, each of the form `{x=787,m=2655,a=1222,s=2876}`
 pub(crate) fn parse_parts(input: &str) -> IResult<&str, Vec<Part>> {
@@ -27,8 +27,7 @@ pub(crate) fn parse_parts(input: &str) -> IResult<&str, Vec<Part>> {
         tag("}"),
     );
 
-    let part_line_parser = tuple_parser
-        .map(|(x, m, a, s)| Part::new(x, m, a, s));
+    let part_line_parser = tuple_parser.map(|(x, m, a, s)| Part::new(x, m, a, s));
 
     let mut parser = separated_list1(multispace1, part_line_parser).terminated(multispace0);
     parser.parse(input)
@@ -56,7 +55,7 @@ pub(crate) fn parse_filters_rows(input: &str) -> IResult<&str, HashMap<Bin, Filt
 }
 
 /// Parse a filter list of the form `a<2006:qkq,m>2090:A,rfg`
-fn parse_filter_list(input: &str) -> IResult<&str, FilterList> {
+pub(crate) fn parse_filter_list(input: &str) -> IResult<&str, FilterList> {
     let filter_parser = alt((parse_operator, parse_unconditional));
     let mut parser = separated_list1(tag(","), filter_parser).map(FilterList);
     parser.parse(input)
@@ -100,8 +99,8 @@ fn parse_operator(input: &str) -> IResult<&str, Filter> {
 
 #[cfg(test)]
 mod test {
-    use indoc::indoc;
     use super::*;
+    use indoc::indoc;
 
     #[test]
     fn test_parse_filter() {
@@ -176,7 +175,6 @@ mod test {
             {x=787,m=2655,a=1222,s=2876}
             {x=1679,m=44,a=2067,s=496}
         "};
-
 
         let (_res, result) = parse_parts(input).unwrap();
         assert_eq!(_res, "");

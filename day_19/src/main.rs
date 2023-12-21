@@ -1,10 +1,17 @@
 mod parsing;
+mod problem_two;
 
 use std::collections::HashMap;
+use std::fmt::Display;
+use std::result;
 
 fn main() {
     let result_one = problem_one();
     println!("Problem one: {}", result_one);
+
+    let result_two = problem_two::problem_two();
+    println!("Problem two: {}", result_two);
+
 }
 
 fn problem_one() -> u64 {
@@ -16,7 +23,11 @@ fn get_rating_numbers(input: &str) -> u64 {
     let (rem, filters) = parsing::parse_filters_rows(input).unwrap();
     let (_, parts) = parsing::parse_parts(rem.trim()).unwrap();
 
-    parts.into_iter().filter(|part| {get_final_bin(part, &filters) == Bin::Accept}).map(|part| {part.total()}).sum()
+    parts
+        .into_iter()
+        .filter(|part| get_final_bin(part, &filters) == Bin::Accept)
+        .map(|part| part.total())
+        .sum()
 }
 
 /// Returns the final bin that the part ends up in, this is either Accept or Reject
@@ -51,13 +62,17 @@ impl Part {
 
     /// Returns the bin that the part ends up in after this filter
     fn get_resulting_bin(&self, filter_list: &FilterList) -> Bin {
-        filter_list.0.iter().find_map(|filter| {
-            if filter.test_part(self) {
-                Some(filter.bin())
-            } else {
-                None
-            }
-        }).unwrap_or(Bin::Reject)
+        filter_list
+            .0
+            .iter()
+            .find_map(|filter| {
+                if filter.test_part(self) {
+                    Some(filter.bin())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(Bin::Reject)
     }
 
     fn total(&self) -> u64 {
@@ -78,6 +93,16 @@ impl Bin {
             "A" => Bin::Accept,
             "R" => Bin::Reject,
             x => Bin::Label(x.to_string()),
+        }
+    }
+}
+
+impl Display for Bin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Bin::Accept => write!(f, " ACC"),
+            Bin::Reject => write!(f, " REJ"),
+            Bin::Label(s) => write!(f, "{:>4}", s),
         }
     }
 }
@@ -116,21 +141,17 @@ impl Filter {
     /// Returns true if the part passes the filter
     fn test_part(&self, part: &Part) -> bool {
         match self {
-            Filter::GreaterThan(value, part_type, _bin) => {
-                match part_type {
-                    PartType::X => part.x > *value,
-                    PartType::M => part.m > *value,
-                    PartType::A => part.a > *value,
-                    PartType::S => part.s > *value,
-                }
+            Filter::GreaterThan(value, part_type, _bin) => match part_type {
+                PartType::X => part.x > *value,
+                PartType::M => part.m > *value,
+                PartType::A => part.a > *value,
+                PartType::S => part.s > *value,
             },
-            Filter::LessThan(value, part_type, _bin) => {
-                match part_type {
-                    PartType::X => part.x < *value,
-                    PartType::M => part.m < *value,
-                    PartType::A => part.a < *value,
-                    PartType::S => part.s < *value,
-                }
+            Filter::LessThan(value, part_type, _bin) => match part_type {
+                PartType::X => part.x < *value,
+                PartType::M => part.m < *value,
+                PartType::A => part.a < *value,
+                PartType::S => part.s < *value,
             },
             Filter::Unconditional(_bin) => true,
         }
@@ -148,10 +169,10 @@ enum PartType {
 #[cfg(test)]
 mod test {
     use super::*;
-    use test_case::test_case;
     use indoc::indoc;
+    use test_case::test_case;
 
-    fn filter_string() -> &'static str {
+    pub(crate) fn filter_string() -> &'static str {
         indoc! {"
             px{a<2006:qkq,m>2090:A,rfg}
             pv{a>1716:R,A}
