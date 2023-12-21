@@ -1,18 +1,29 @@
-use crate::{Bin, Filter, FilterList, Part, PartType};
+use crate::{Bin, Filter, FilterList, PartType};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+pub(crate) fn problem_two() -> u64 {
+    let input = include_str!("problem_text");
+    let output = process_filter_set(input);
+
+    let accepted = output.map.get(&Bin::Accept).unwrap();
+    let combinations = accepted.iter().map(|a| a.get_combinations()).sum::<u64>();
+    combinations
+}
+
+/// Process the filter set, returning a map of bins to ranges.
+///
+/// The bins are either Accept, Reject and contains a vector of ranges that are accepted or rejected.
 fn process_filter_set(input: &str) -> HistMap {
     let (_, filters) = crate::parsing::parse_filters_rows(input).unwrap();
-    let mut range = PartRange::from_range(1, 4000);
+    let range = PartRange::from_range(1, 4000);
     let mut hist_map = HistMap::new();
 
     // Create an initial entry for the history map
-    let mut filter = filters.get(&Bin::new("in")).unwrap();
-    let mut range_map = filter.split_range(range);
+    let filter = filters.get(&Bin::new("in")).unwrap();
+    let range_map = filter.split_range(range);
 
     hist_map.extend(&range_map);
-    println!("{}", hist_map);
 
     loop {
         let mut new_hist_map = HistMap::new();
@@ -27,21 +38,20 @@ fn process_filter_set(input: &str) -> HistMap {
                     }
                 }
                 _ => {
-                    // For the label bins, split the ranges
-                    let filter = filters.get(&bin).expect("Filter not found");
+                    // For the label bins, split the ranges and add them to the new map to be processed
+                    // in the next iteration
+                    let filter = filters.get(bin).expect("Filter not found");
                     for range in ranges {
-                        let mut range_map = filter.split_range(*range);
+                        let range_map = filter.split_range(*range);
                         new_hist_map.extend(&range_map);
                     }
                 }
             }
         }
 
-        println!("{}", new_hist_map);
-
         // If everything is in the accept/reject bins then we are done
         if new_hist_map.count_non_empty_labels() == 0 {
-            return new_hist_map
+            return new_hist_map;
         }
         hist_map = new_hist_map.clone();
     }
@@ -56,15 +66,6 @@ struct PartRange {
 }
 
 impl PartRange {
-    fn from_max(val: u64) -> PartRange {
-        PartRange {
-            x: Range::from_upper(val),
-            m: Range::from_upper(val),
-            a: Range::from_upper(val),
-            s: Range::from_upper(val),
-        }
-    }
-
     fn from_range(min: u64, max: u64) -> PartRange {
         PartRange {
             x: Range::new(max, min),
@@ -83,28 +84,16 @@ impl PartRange {
             s: self.s,
         };
         match part_type {
-            PartType::X => Self {
-                x: range,
-                ..new
-            },
-            PartType::M => Self {
-                m: range,
-                ..new
-            },
-            PartType::A => Self {
-                a: range,
-                ..new
-            },
-            PartType::S => Self {
-                s: range,
-                ..new
-            },
+            PartType::X => Self { x: range, ..new },
+            PartType::M => Self { m: range, ..new },
+            PartType::A => Self { a: range, ..new },
+            PartType::S => Self { s: range, ..new },
         }
     }
 
     /// Split the part range into accepted and rejected ranges, based on the given filter.
     ///
-    /// If any part of the range is empty then the entire range is None.
+    /// If any part of the range is empty then the entire PartRange is None.
     fn split(&self, filter: &Filter) -> (Option<PartRange>, Option<PartRange>) {
         match filter {
             Filter::GreaterThan(value, part_type, _bin) => {
@@ -119,7 +108,7 @@ impl PartRange {
                 let rejected = rejected.map(|range| self.replace_range(range, *part_type));
 
                 (accepted, rejected)
-            },
+            }
             Filter::LessThan(value, part_type, _bin) => {
                 let (accepted, rejected) = match part_type {
                     PartType::X => self.x.less_than(*value),
@@ -144,10 +133,13 @@ impl PartRange {
 
 impl Display for PartRange {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "x: {}, m: {}, a: {}, s: {}", self.x, self.m, self.a, self.s)
+        write!(
+            f,
+            "x: {}, m: {}, a: {}, s: {}",
+            self.x, self.m, self.a, self.s
+        )
     }
 }
-
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 struct Range {
@@ -158,10 +150,6 @@ struct Range {
 impl Range {
     fn new(upper: u64, lower: u64) -> Range {
         Range { upper, lower }
-    }
-
-    fn from_upper(upper: u64) -> Range {
-        Range { upper, lower: 0 }
     }
 
     fn length(&self) -> u64 {
@@ -182,8 +170,8 @@ impl Range {
             return (Some(*self), None);
         }
 
-        let mut accepted = self.clone();
-        let mut rejected = self.clone();
+        let mut accepted = *self;
+        let mut rejected = *self;
 
         accepted.upper = value - 1;
         rejected.lower = value;
@@ -195,16 +183,16 @@ impl Range {
     fn greater_than(&self, value: u64) -> (Option<Self>, Option<Self>) {
         // If the new lower bound is greater than the upper bound, then all values are rejected
         if value > self.upper {
-            return (None, Some(self.clone()));
+            return (None, Some(*self));
         }
 
         // If the new lower bound is less than the current lower bound, then all values are accepted
         if value < self.lower {
-            return (Some(self.clone()), None);
+            return (Some(*self), None);
         }
 
-        let mut accepted = self.clone();
-        let mut rejected = self.clone();
+        let mut accepted = *self;
+        let mut rejected = *self;
 
         accepted.lower = value + 1;
         rejected.upper = value;
@@ -223,13 +211,6 @@ impl Display for Range {
     }
 }
 
-pub(crate) fn problem_two() -> u64 {
-    let input = include_str!("problem_text");
-    let hist_map = process_filter_set(input);
-
-    0
-}
-
 #[derive(Debug, Clone)]
 struct HistMap {
     map: HashMap<Bin, Vec<PartRange>>,
@@ -237,29 +218,30 @@ struct HistMap {
 
 impl HistMap {
     fn new() -> Self {
-        let mut map = HashMap::new();
+        let map = HashMap::new();
         Self { map }
     }
 
     fn insert(&mut self, bin: Bin, range: PartRange) {
-        self.map.entry(bin).or_insert_with(Vec::new).push(range);
+        self.map.entry(bin).or_default().push(range);
     }
 
-    fn extend(&mut self, map: &HashMap<Bin, PartRange>) {
+    fn extend(&mut self, map: &HashMap<Bin, Vec<PartRange>>) {
         for (bin, range) in map {
-            self.insert(bin.clone(), *range);
+            self.map.entry(bin.clone()).or_default().extend(range);
         }
     }
 
     /// Count the number of non-empty labels in the map
     fn count_non_empty_labels(&self) -> usize {
-        self.map.iter().filter(|(b, v)|
-            match b {
+        self.map
+            .iter()
+            .filter(|(b, v)| match b {
                 Bin::Accept => false,
                 Bin::Reject => false,
-                _ => v.len() > 0,
-            }
-        ).count()
+                _ => !v.is_empty(),
+            })
+            .count()
     }
 }
 
@@ -276,16 +258,26 @@ impl Display for HistMap {
     }
 }
 
-
 impl FilterList {
     /// Split the ranges into given bins based on the filters.
-    fn split_range(&self, range: PartRange) -> HashMap<Bin, PartRange> {
-        let mut remaining_range = range.clone();
+    fn split_range(&self, range: PartRange) -> HashMap<Bin, Vec<PartRange>> {
+        // This function used to return a hashmap of bins to ranges, but this broke down when
+        // we had a filter than could return the same bin multiple times.  For example, if we
+        // had a filter of `m>1548:A,A` then we would overwrite one of the ranges.
+        // (This exact case could be reduced down to a single output, but we might have a 3-way
+        // split that would be reduced to a 2-way split.)
+        let mut remaining_range = range;
         let mut map = HashMap::new();
 
         for filter in &self.0 {
             let (accepted, range) = remaining_range.split(filter);
-            map.insert(filter.bin(), accepted.unwrap());
+
+            if let Some(accepted) = accepted {
+                map.entry(filter.bin())
+                    .or_insert_with(Vec::new)
+                    .push(accepted);
+            }
+
             if let Some(range) = range {
                 remaining_range = range;
             } else {
@@ -300,11 +292,15 @@ impl FilterList {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::Part;
     use test_case::test_case;
 
     impl PartRange {
         fn contains_part(&self, part: &Part) -> bool {
-            self.x.contains(part.x) && self.m.contains(part.m) && self.a.contains(part.a) && self.s.contains(part.s)
+            self.x.contains(part.x)
+                && self.m.contains(part.m)
+                && self.a.contains(part.a)
+                && self.s.contains(part.s)
         }
     }
 
@@ -312,7 +308,6 @@ mod test {
         fn contains(&self, value: u64) -> bool {
             value >= self.lower && value <= self.upper
         }
-
     }
 
     /// We should be able to recreate part one of the problem using this method
@@ -322,7 +317,6 @@ mod test {
     #[test_case(2461, 1339, 466, 291, Bin::Reject)]
     #[test_case(2172, 1623, 2188, 1013, Bin::Accept)]
     fn test_sample_one(x: u64, m: u64, a: u64, s: u64, expected: Bin) {
-        let range = PartRange::from_range(1,4000);
         let filter_string = crate::test::filter_string();
 
         let output = process_filter_set(filter_string);
@@ -345,7 +339,6 @@ mod test {
     #[test_case(2461, 1339, 466, 291, Bin::Reject)]
     #[test_case(2172, 1623, 2188, 1013, Bin::Accept)]
     fn test_sample_one_inv(x: u64, m: u64, a: u64, s: u64, expected: Bin) {
-        let range = PartRange::from_range(1,4000);
         let filter_string = crate::test::filter_string();
 
         let output = process_filter_set(filter_string);
@@ -365,7 +358,7 @@ mod test {
     fn test_bisect_range() {
         let (_, filter_range) =
             crate::parsing::parse_filter_list("a<2006:qkq,m>2090:A,rfg").unwrap();
-        let range = PartRange::from_range(0,4000);
+        let range = PartRange::from_range(0, 4000);
 
         let map = filter_range.split_range(range);
 
@@ -400,13 +393,13 @@ mod test {
 
         let keys = expected.keys().collect::<Vec<_>>();
         for key in keys {
-            assert_eq!(map[&key], expected[&key], "Key: {:?}", key);
+            assert_eq!(map[&key][0], expected[&key], "Key: {:?}", key);
         }
     }
 
     #[test]
     fn test_redundant_filter() {
-        let range = PartRange::from_max(4000);
+        let range = PartRange::from_range(0, 4000);
 
         // Create a sample range that has x >= 500
         let (upper_range, _lower_range) =
@@ -446,13 +439,12 @@ mod test {
 
     #[test]
     fn test_complete_filter() {
-        let range = PartRange::from_max(4000);
+        let range = PartRange::from_range(0, 4000);
 
         // Create a sample range that has x >= 500
         let (upper_range, _lower_range) =
             range.split(&Filter::new_greater_than(499, PartType::X, Bin::new("qkq")));
         let upper_range = upper_range.unwrap();
-
 
         // Now we do a complete filter of x <= 300
         let filter = Filter::new_less_than(300, PartType::X, Bin::new("qkq"));
@@ -471,7 +463,6 @@ mod test {
             },
             "Rejection should be the same"
         );
-
     }
 
     // In this filter, both outcomes go to the same bin
@@ -480,8 +471,7 @@ mod test {
         let range = PartRange::from_range(1, 4000);
         let filter_string = "m>1548:A,A";
 
-        let (_, filter_range) =
-            crate::parsing::parse_filter_list(filter_string).unwrap();
+        let (_, filter_range) = crate::parsing::parse_filter_list(filter_string).unwrap();
 
         let map = filter_range.split_range(range);
 
@@ -489,23 +479,30 @@ mod test {
 
         expected.insert(
             Bin::new("A"),
-            PartRange {
-                x: Range::new(4000, 1),
-                m: Range::new(4000, 1549),
-                a: Range::new(4000, 1),
-                s: Range::new(4000, 1),
-            },
+            vec![
+                PartRange {
+                    x: Range::new(4000, 1),
+                    m: Range::new(4000, 1549),
+                    a: Range::new(4000, 1),
+                    s: Range::new(4000, 1),
+                },
+                PartRange {
+                    x: Range::new(4000, 1),
+                    m: Range::new(1548, 1),
+                    a: Range::new(4000, 1),
+                    s: Range::new(4000, 1),
+                },
+            ],
         );
 
-
-        assert!(false)
-
-
+        let keys = expected.keys().collect::<Vec<_>>();
+        for key in keys {
+            assert_eq!(map[&key], expected[&key], "Key: {:?}", key);
+        }
     }
 
-    // #[test]
+    #[test]
     fn test_filter_set() {
-        let range = PartRange::from_range(1,4000);
         let filter_string = crate::test::filter_string();
 
         let output = process_filter_set(filter_string);

@@ -3,15 +3,29 @@ mod problem_two;
 
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::result;
 
 fn main() {
     let result_one = problem_one();
     println!("Problem one: {}", result_one);
 
+    let result_one_expected = 395382;
+    if result_one != result_one_expected {
+        eprintln!(
+            "Problem one result is incorrect, expected {}, got {}",
+            result_one_expected, result_one
+        );
+    }
+
     let result_two = problem_two::problem_two();
     println!("Problem two: {}", result_two);
 
+    let result_two_expected = 103557657654583;
+    if result_two != result_two_expected {
+        eprintln!(
+            "Problem two result is incorrect, expected {}, got {}",
+            result_two_expected, result_two
+        );
+    }
 }
 
 fn problem_one() -> u64 {
