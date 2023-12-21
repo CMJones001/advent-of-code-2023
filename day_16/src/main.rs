@@ -13,11 +13,84 @@ fn main() {
         Ordering::Greater => println!("Problem one answer is higher than expected answer: {}", expected_one),
         _ => {}
     }
+
+    let problem_two_answer = problem_two();
+    println!("Problem two answer: {}", problem_two_answer);
+
 }
 
 fn problem_one() -> u64 {
     let input = include_str!("problem_text");
     get_total_energy(input)
+}
+
+fn problem_two() -> u64 {
+    let input = include_str!("problem_text");
+    get_max_energy(input)
+}
+
+/// Try all the starting points, and return the maximum number of energized tiles
+///
+/// Perhaps we might cache some of the results to speed things up, but it's not necessary for the input size
+fn get_max_energy(input: &str) -> u64 {
+    let map = match parse_map(input) {
+        Ok(map) => map,
+        Err(e) => panic!("{}", e),
+    };
+
+    let upper_max = (0..map.width).map(|col| {
+        let mut local_map = map.clone();
+        let starting_beam = Beam {
+            x: col,
+            y: 0,
+            height: map.height,
+            width: map.width,
+            direction: Direction::Down,
+        };
+        calculate_laser_path(&mut local_map, starting_beam);
+        local_map.energized.iter().filter(|&e| *e).count() as u64
+    }).max().unwrap();
+
+    let lower_max = (0..map.width).map(|col| {
+        let mut local_map = map.clone();
+        let starting_beam = Beam {
+            x: col,
+            y: map.height - 1,
+            height: map.height,
+            width: map.width,
+            direction: Direction::Up,
+        };
+        calculate_laser_path(&mut local_map, starting_beam);
+        local_map.energized.iter().filter(|&e| *e).count() as u64
+    }).max().unwrap();
+
+    let left_max = (0..map.height).map(|row| {
+        let mut local_map = map.clone();
+        let starting_beam = Beam {
+            x: 0,
+            y: row,
+            height: map.height,
+            width: map.width,
+            direction: Direction::Right,
+        };
+        calculate_laser_path(&mut local_map, starting_beam);
+        local_map.energized.iter().filter(|&e| *e).count() as u64
+    }).max().unwrap();
+
+    let right_max = (0..map.height).map(|row| {
+        let mut local_map = map.clone();
+        let starting_beam = Beam {
+            x: map.width - 1,
+            y: row,
+            height: map.height,
+            width: map.width,
+            direction: Direction::Left,
+        };
+        calculate_laser_path(&mut local_map, starting_beam);
+        local_map.energized.iter().filter(|&e| *e).count() as u64
+    }).max().unwrap();
+
+    [upper_max, lower_max, left_max, right_max].into_iter().max().unwrap()
 }
 
 fn get_total_energy(input: &str) -> u64 {
@@ -26,21 +99,15 @@ fn get_total_energy(input: &str) -> u64 {
         Err(e) => panic!("{}", e),
     };
 
-    calculate_laser_path(&mut map);
+    let starting_beam = Beam::default_from_map(&map);
+    calculate_laser_path(&mut map, starting_beam);
     map.energized.iter().filter(|&e| *e).count() as u64
 }
 
-fn calculate_laser_path(map: &mut Map) {
+fn calculate_laser_path(map: &mut Map, starting_beam: Beam) {
     let mut active_beams = Vec::new();
     let mut beam_history = HashSet::new();
 
-    let starting_beam = Beam {
-        direction: Direction::Right,
-        x: 0,
-        y: 0,
-        height: map.height,
-        width: map.width,
-    };
     map.energise(&starting_beam);
 
     // Take the first step
@@ -135,6 +202,16 @@ struct Beam {
 }
 
 impl Beam {
+    fn default_from_map(map: &Map) -> Beam {
+        Beam {
+            x: 0,
+            y: 0,
+            height: map.height,
+            width: map.width,
+            direction: Direction::Right,
+        }
+    }
+
     fn with_coords(&self, x: usize, y: usize) -> Beam {
         Beam {
             x,
@@ -251,6 +328,7 @@ impl Display for Indicator {
 }
 
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct Map {
     titles: Vec<Tile>,
     energized: Vec<bool>,
@@ -398,7 +476,8 @@ mod test {
             Err(e) => panic!("{}", e),
         };
 
-        calculate_laser_path(&mut map);
+        let starting_beam = Beam::default_from_map(&map);
+        calculate_laser_path(&mut map, starting_beam);
 
         let energized_beam = map.energised_string();
         let expected_output = indoc! {r#"
@@ -426,7 +505,8 @@ mod test {
             Err(e) => panic!("{}", e),
         };
 
-        calculate_laser_path(&mut map);
+        let starting_beam = Beam::default_from_map(&map);
+        calculate_laser_path(&mut map, starting_beam);
 
         let energized_beam = map.energised_string();
         let expected_output = indoc! {r#"
@@ -449,7 +529,8 @@ mod test {
             Err(e) => panic!("{}", e),
         };
 
-        calculate_laser_path(&mut map);
+        let starting_beam = Beam::default_from_map(&map);
+        calculate_laser_path(&mut map, starting_beam);
 
         let energized_beam = map.energised_string();
         let expected_output = "XXXXX\n";
@@ -465,7 +546,8 @@ mod test {
             Err(e) => panic!("{}", e),
         };
 
-        calculate_laser_path(&mut map);
+        let starting_beam = Beam::default_from_map(&map);
+        calculate_laser_path(&mut map, starting_beam);
 
         let expected_output = indoc! {r#"
             XXXXXX....
@@ -498,7 +580,8 @@ mod test {
             Err(e) => panic!("{}", e),
         };
 
-        calculate_laser_path(&mut map);
+        let starting_beam = Beam::default_from_map(&map);
+        calculate_laser_path(&mut map, starting_beam);
 
         let energized_beam = map.energised_string();
         let expected_output = indoc! {r#"
@@ -535,7 +618,8 @@ mod test {
             Err(e) => panic!("{}", e),
         };
 
-        calculate_laser_path(&mut map);
+        let starting_beam = Beam::default_from_map(&map);
+        calculate_laser_path(&mut map, starting_beam);
 
         let pretty_string_expected = indoc! {r#"
               →→→↓↑
@@ -555,5 +639,13 @@ mod test {
         let total_energy = get_total_energy(input);
 
         assert_eq!(total_energy, 46);
+    }
+
+    #[test]
+    fn test_sample_two() {
+        let input = get_input();
+        let max_energy = get_max_energy(input);
+
+        assert_eq!(max_energy, 51);
     }
 }
