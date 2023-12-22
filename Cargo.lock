@@ -85,6 +85,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "day_18"
+version = "0.1.0"
+dependencies = [
+ "indoc",
+ "ndarray",
+ "nom",
+ "nom-supreme",
+]
+
+[[package]]
 name = "day_19"
 version = "0.1.0"
 dependencies = [
