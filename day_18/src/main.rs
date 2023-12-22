@@ -1,4 +1,6 @@
 mod parser;
+mod sparse_parser;
+mod sparse_processing;
 
 use ndarray::{s, Array2};
 use std::cmp::Ordering;
@@ -19,7 +21,23 @@ fn main() {
             "Problem one answer is too low, got {} expected {}",
             problem_one_answer, problem_one_expected
         ),
-        _ => println!("Problem one answer is correct."),
+        _ => {}
+    }
+
+    let problem_two_answer = sparse_processing::problem_two();
+    println!("Problem two answer: {}", problem_two_answer);
+
+    let problem_two_expected = 45757884535661;
+    match problem_two_answer.cmp(&problem_two_expected) {
+        Ordering::Greater => println!(
+            "Problem two answer is too high, got {} expected {}",
+            problem_two_answer, problem_two_expected
+        ),
+        Ordering::Less => println!(
+            "Problem two answer is too low, got {} expected {}",
+            problem_two_answer, problem_two_expected
+        ),
+        _ => {}
     }
 }
 
@@ -38,6 +56,7 @@ fn problem_one() -> usize {
     num_inside
 }
 
+#[allow(clippy::reversed_empty_ranges)]
 fn flood_fill_inside(input: &str) -> Array2<bool> {
     let path = get_boundary_points(input);
     let bricks = normalise_path(&path);
@@ -54,6 +73,8 @@ fn flood_fill_inside(input: &str) -> Array2<bool> {
 
     // Reduce the array back to its original size
     let outside_array = flood_fill(&expanded_array, 0, 0);
+    // Clippy doesn't seem to like the indexing here, but I think this an abuse of notation by ndarray
+    // so we disable the lint on this function
     let outside_array = outside_array.slice(s![1..-1, 1..-1]).to_owned();
 
     let inside_array = outside_array.mapv(|b| !b);
@@ -195,7 +216,7 @@ mod test {
     use super::*;
     use indoc::indoc;
 
-    fn test_input() -> &'static str {
+    pub(crate) fn test_input() -> &'static str {
         indoc! {"
             R 6 (#70c710)
             D 5 (#0dc571)
