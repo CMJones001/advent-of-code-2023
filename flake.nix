@@ -41,7 +41,6 @@
           black isort
           clippy
         ];
-        inputsFrom = [ pkgs.neovim pkgs.zsh ];
         shellHook = ''
           alias vim='nvim';
         '';

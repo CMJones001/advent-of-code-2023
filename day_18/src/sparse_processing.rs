@@ -1,10 +1,16 @@
 use crate::sparse_parser::parse_sparse_list;
 use crate::{Direction, Instruction};
+use rayon::prelude::*;
 
 pub fn problem_two() -> u64 {
+    let parallel = true;
     let input = include_str!("problem_text");
     let instructions = parse_sparse_list(input).unwrap();
-    get_total_inside_count(instructions)
+    if parallel {
+        get_total_inside_count_par(instructions)
+    } else {
+        get_total_inside_count(instructions)
+    }
 }
 
 fn collect_intersections_on_row(walls: &[Wall], y: i32) -> Vec<&Wall> {
@@ -26,8 +32,8 @@ fn get_total_inside_count(instructions: Vec<Instruction>) -> u64 {
 
     let max_y = walls.iter().map(|wall| wall.max_y()).max().unwrap();
     let min_y = walls.iter().map(|wall| wall.min_y()).min().unwrap();
-    let mut count = 0;
 
+    let mut count = 0;
     let mut last_intersection = None;
 
     for y in min_y..=max_y {
@@ -46,6 +52,44 @@ fn get_total_inside_count(instructions: Vec<Instruction>) -> u64 {
         count += row_count as u64;
         last_intersection = Some((intersections.clone(), row_count));
     }
+
+    count
+}
+
+/// A parallel version of get_total_inside_count.
+fn get_total_inside_count_par(instructions: Vec<Instruction>) -> u64 {
+    let walls = instructions_to_walls(&instructions);
+    assert!(is_wall_loop(&walls));
+
+    let min_x = walls.iter().map(|wall| wall.min_x()).min().unwrap();
+
+    let max_y = walls.iter().map(|wall| wall.max_y()).max().unwrap();
+    let min_y = walls.iter().map(|wall| wall.min_y()).min().unwrap();
+
+    let count = (min_y..=max_y)
+        .into_par_iter()
+        .fold(
+            || (0, None),
+            |(score, last_intersection), y| {
+                let mut intersections = collect_intersections_on_row(&walls, y);
+
+                // Cache the last intersection, so we can reuse the score if the intersections are the same
+                if let Some((ref prev_wall, prev_score)) = last_intersection {
+                    if &intersections == prev_wall {
+                        return (score + prev_score as u64, last_intersection);
+                    }
+                }
+                intersections.sort_by_key(|wall| wall.mid_x());
+
+                let row_count = get_row_count(min_x, &mut intersections);
+                let last_intersection = Some((intersections.clone(), row_count));
+                (score + row_count as u64, last_intersection)
+            },
+        )
+        // Fold leaves us with another iterator (due to the parallel nature), so we need to
+        // sum the results.
+        .map(|(a, _)| a)
+        .sum::<u64>();
 
     count
 }
@@ -522,6 +566,17 @@ mod test {
         let input = crate::test::test_input();
         let instructions = parse_sparse_list(input).unwrap();
         let total = get_total_inside_count(instructions);
+
+        assert_eq!(total, 952408144115);
+    }
+
+    #[test]
+    fn test_parse_sample_two_par() {
+        // We should be able to recover the results from sample two (without the colour encoding)
+
+        let input = crate::test::test_input();
+        let instructions = parse_sparse_list(input).unwrap();
+        let total = get_total_inside_count_par(instructions);
 
         assert_eq!(total, 952408144115);
     }
