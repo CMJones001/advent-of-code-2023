@@ -41,7 +41,7 @@ fn parse_instruction(input: &str) -> IResult<&str, Instruction> {
     let colour_parser = delimited(tag("(#"), hex_parser, tag(")"));
 
     tuple((direction_parser, distance_parser, colour_parser))
-        .map(|(direction, distance, colour)| Instruction::new(direction, distance, colour))
+        .map(|(direction, distance, _)| Instruction::new(direction, distance))
         .parse(input)
 }
 
@@ -52,7 +52,7 @@ mod test {
     #[test]
     fn test_parse() {
         let input = "R 6 (#70c710)";
-        let expected = Instruction::new(Direction::Right, 6, 0x70c710);
+        let expected = Instruction::new(Direction::Right, 6);
 
         assert_eq!(parse_instruction(input), Ok(("", expected)));
     }
@@ -61,8 +61,8 @@ mod test {
     fn test_parse_multiple() {
         let input = "R 6 (#70c710)\nD 5 (#0dc571)";
         let expected = vec![
-            Instruction::new(Direction::Right, 6, 0x70c710),
-            Instruction::new(Direction::Down, 5, 0x0dc571),
+            Instruction::new(Direction::Right, 6),
+            Instruction::new(Direction::Down, 5),
         ];
         assert_eq!(parse_list(input), Ok(("", expected)));
     }

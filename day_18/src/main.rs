@@ -81,7 +81,7 @@ fn flood_fill_inside(input: &str) -> Array2<bool> {
     inside_array | outline_array
 }
 
-fn get_boundary_points(input: &str) -> Vec<(i32, i32, u32)> {
+fn get_boundary_points(input: &str) -> Vec<(i32, i32)> {
     let instructions = parse(input).unwrap();
 
     let path = instructions.iter().scan((0, 0), |(x, y), instruction| {
@@ -93,7 +93,7 @@ fn get_boundary_points(input: &str) -> Vec<(i32, i32, u32)> {
                 Direction::Left => *x -= 1,
                 Direction::Right => *x += 1,
             }
-            points.push((*x, *y, instruction.colour));
+            points.push((*x, *y));
         }
         Some(points)
     });
@@ -105,12 +105,11 @@ fn get_boundary_points(input: &str) -> Vec<(i32, i32, u32)> {
 struct Brick {
     x: usize,
     y: usize,
-    colour: u32,
 }
 
 impl Brick {
-    fn new(x: usize, y: usize, colour: u32) -> Brick {
-        Brick { x, y, colour }
+    fn new(x: usize, y: usize) -> Brick {
+        Brick { x, y }
     }
 }
 
@@ -118,12 +117,12 @@ impl Brick {
 ///
 /// This converts the i32 coordinates into usize coordinates, shifting them
 /// so that the minimum x and y values are 0.
-fn normalise_path(path: &[(i32, i32, u32)]) -> Vec<Brick> {
-    let min_x = path.iter().map(|(x, _, _)| x).min().unwrap();
-    let min_y = path.iter().map(|(_, y, _)| y).min().unwrap();
+fn normalise_path(path: &[(i32, i32)]) -> Vec<Brick> {
+    let min_x = path.iter().map(|(x, _)| x).min().unwrap();
+    let min_y = path.iter().map(|(_, y)| y).min().unwrap();
 
     path.iter()
-        .map(|(x, y, colour)| Brick::new((x - min_x) as usize, (y - min_y) as usize, *colour))
+        .map(|(x, y)| Brick::new((x - min_x) as usize, (y - min_y) as usize))
         .collect()
 }
 
@@ -190,15 +189,13 @@ fn flood_fill(arr: &Array2<bool>, x: usize, y: usize) -> Array2<bool> {
 struct Instruction {
     direction: Direction,
     distance: u32,
-    colour: u32,
 }
 
 impl Instruction {
-    fn new(direction: Direction, distance: u32, colour: u32) -> Instruction {
+    fn new(direction: Direction, distance: u32) -> Instruction {
         Instruction {
             direction,
             distance,
-            colour,
         }
     }
 }

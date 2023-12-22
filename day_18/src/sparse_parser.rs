@@ -11,6 +11,16 @@ pub fn parse_sparse_list(input: &str) -> Result<Vec<Instruction>, String> {
     Ok(instructions)
 }
 
+/// Hand written parser to get the hex digits in the `(#70c710)` part
+///
+/// The first five digits are the hex distance
+/// The next digit is the direction
+/// - 0: Right
+/// - 1: Down
+/// - 2: Left
+/// - 3: Up
+///
+/// The rest of the characters are ignored
 fn parse_instruction(input: &str) -> Result<Instruction, String> {
     // Remove everything until the the first '#'
     let input = input
@@ -30,7 +40,7 @@ fn parse_instruction(input: &str) -> Result<Instruction, String> {
         _ => panic!("Invalid direction"),
     };
 
-    let instruction = Instruction::new(direction, distance, 0);
+    let instruction = Instruction::new(direction, distance);
     Ok(instruction)
 }
 
@@ -41,7 +51,7 @@ mod test {
     #[test]
     fn test_parse_line() {
         let input = "R 6 (#70c710)";
-        let expected = Instruction::new(Direction::Right, 461937, 0);
+        let expected = Instruction::new(Direction::Right, 461937);
 
         assert_eq!(parse_instruction(input), Ok(expected));
     }
@@ -50,9 +60,9 @@ mod test {
     fn test_parse_list() {
         let input = "R 6 (#70c710)\nD 5 (#0dc571)\nL 2 (#5713f0)";
         let expected = vec![
-            Instruction::new(Direction::Right, 461937, 0),
-            Instruction::new(Direction::Down, 56407, 0),
-            Instruction::new(Direction::Right, 356671, 0),
+            Instruction::new(Direction::Right, 461937),
+            Instruction::new(Direction::Down, 56407),
+            Instruction::new(Direction::Right, 356671),
         ];
         assert_eq!(parse_sparse_list(input), Ok(expected));
     }

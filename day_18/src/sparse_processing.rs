@@ -2,10 +2,27 @@ use crate::sparse_parser::parse_sparse_list;
 use crate::{Direction, Instruction};
 use rayon::prelude::*;
 
+/// This is an extension of the previous problem, where we need to count the number of pixels
+/// inside the path. However, the path is now potentially millions of pixels long, so we need
+/// to be more efficient and cannot store the entire path in memory.
+///
+/// Instead we need to use a sparse representation of the path, and then count the number of
+/// pixels in a row by row fashion.
+/// We convert the instructions into a list of walls and use the crossings of the walls to
+/// determine if a pixel is inside the path.
+///
+/// In short, if we cross a vertical row, then we switch between inside and outside.
+/// if we cross a horizontal row, then we switch between inside and outside if the wall is
+/// not part of a loop.
+/// A wall is a loop if the two corners are in the same direction, e.g. U to U or D to D.
+///
+/// We've employed some caching to speed up the process, and parallelised the row counting.
+
 pub fn problem_two() -> u64 {
-    let parallel = true;
     let input = include_str!("problem_text");
     let instructions = parse_sparse_list(input).unwrap();
+
+    let parallel = true;
     if parallel {
         get_total_inside_count_par(instructions)
     } else {
@@ -345,9 +362,9 @@ mod test {
              #
          */
         let instructions = vec![
-            Instruction::new(Direction::Down, 6, 0x70c710),
-            Instruction::new(Direction::Right, 5, 0x0dc571),
-            Instruction::new(Direction::Down, 3, 0x0dc571),
+            Instruction::new(Direction::Down, 6),
+            Instruction::new(Direction::Right, 5),
+            Instruction::new(Direction::Down, 3),
         ];
 
         let walls = instructions_to_walls(&instructions);
@@ -366,10 +383,10 @@ mod test {
         */
 
         let instructions = vec![
-            Instruction::new(Direction::Up, 6, 0x70c710),
-            Instruction::new(Direction::Left, 5, 0x0dc571),
-            Instruction::new(Direction::Down, 3, 0x0dc571),
-            Instruction::new(Direction::Right, 5, 0x0dc571),
+            Instruction::new(Direction::Up, 6),
+            Instruction::new(Direction::Left, 5),
+            Instruction::new(Direction::Down, 3),
+            Instruction::new(Direction::Right, 5),
         ];
 
         let walls = instructions_to_walls(&instructions);
@@ -401,12 +418,12 @@ mod test {
         */
 
         let instructions = vec![
-            Instruction::new(Direction::Right, 2, 0x70c710),
-            Instruction::new(Direction::Down, 2, 0x0dc571),
-            Instruction::new(Direction::Right, 3, 0x0dc571),
-            Instruction::new(Direction::Up, 6, 0x0dc571),
-            Instruction::new(Direction::Left, 5, 0x0dc571),
-            Instruction::new(Direction::Down, 4, 0x0dc571),
+            Instruction::new(Direction::Right, 2),
+            Instruction::new(Direction::Down, 2),
+            Instruction::new(Direction::Right, 3),
+            Instruction::new(Direction::Up, 6),
+            Instruction::new(Direction::Left, 5),
+            Instruction::new(Direction::Down, 4),
         ];
 
         instructions_to_walls(&instructions)
@@ -441,7 +458,7 @@ mod test {
     fn create_instruction_list(instructions: Vec<(Direction, u32)>) -> Vec<Instruction> {
         instructions
             .into_iter()
-            .map(|(direction, distance)| Instruction::new(direction, distance, 0))
+            .map(|(direction, distance)| Instruction::new(direction, distance))
             .collect()
     }
 
